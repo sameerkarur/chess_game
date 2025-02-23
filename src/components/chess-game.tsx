@@ -1,6 +1,7 @@
 import { useGame } from "@/lib/game-context"
 import { ChessBoard } from "./chess-board"
 import { MoveHistory } from "./move-history"
+import { PromotionDialog } from "./promotion-dialog"
 import { Position } from "@/types/chess"
 import { getValidMoves } from "@/utils/move-validator"
 import { wouldMoveResultInCheck } from "@/utils/check-validator"
@@ -104,6 +105,13 @@ export function ChessGame() {
         </div>
       </div>
       <MoveHistory moves={state.moveHistory} />
+      {state.promotionState && (
+        <PromotionDialog
+          pawn={state.promotionState.pawn}
+          position={state.promotionState.position}
+          onPromote={(type) => dispatch({ type: "PROMOTE_PAWN", type })}
+        />
+      )}
     </div>
   )
 }

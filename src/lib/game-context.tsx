@@ -11,6 +11,7 @@ type GameAction =
   | { type: "SET_VALID_MOVES"; moves: Position[] }
   | { type: "CAPTURE_PIECE"; piece: ChessPiece }
   | { type: "CHECK_GAME_STATUS" }
+  | { type: "PROMOTE_PAWN"; type: PieceType }
 
 interface GameContextType {
   state: GameState
@@ -18,6 +19,14 @@ interface GameContextType {
 }
 
 const GameContext = createContext<GameContextType | undefined>(undefined)
+
+function isPromotionMove(piece: ChessPiece, to: Position): boolean {
+  return (
+    piece.type === PieceType.PAWN &&
+    ((piece.color === PlayerColor.WHITE && to.y === 7) ||
+      (piece.color === PlayerColor.BLACK && to.y === 0))
+  )
+}
 
 function handleCastling(
   state: GameState,
@@ -121,6 +130,18 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       )
       if (!piece) return state
 
+      // Check for promotion
+      if (isPromotionMove(piece, action.to)) {
+        return {
+          ...state,
+          promotionState: {
+            pawn: piece,
+            position: action.to,
+            isOpen: true,
+          },
+        }
+      }
+
       // Handle special moves
       let newPieces = handleCastling(state, piece, action.to)
       const isCastling = newPieces !== state.pieces
@@ -170,6 +191,56 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         action.from,
         action.to,
         isCapture,
+        updatedState.isCheck,
+        updatedState.isCheckmate
+      )
+
+      return {
+        ...updatedState,
+        moveHistory: [...state.moveHistory, moveNotation],
+      }
+    }
+
+    case "PROMOTE_PAWN": {
+      if (!state.promotionState) return state
+
+      const { pawn, position } = state.promotionState
+      const newPieces = state.pieces.map((p) =>
+        p === pawn
+          ? {
+              ...p,
+              type: action.type,
+              position,
+              hasMoved: true,
+            }
+          : p
+      )
+
+      const newState = {
+        ...state,
+        pieces: newPieces,
+        promotionState: null,
+        currentTurn:
+          state.currentTurn === PlayerColor.WHITE
+            ? PlayerColor.BLACK
+            : PlayerColor.WHITE,
+        selectedPiece: null,
+        validMoves: [],
+        lastMove: {
+          piece: { ...pawn, type: action.type },
+          from: pawn.position,
+          to: position,
+        },
+      }
+
+      const updatedState = updateGameStatus(newState)
+
+      // Record promotion in history
+      const moveNotation = getMoveNotation(
+        { ...pawn, type: action.type },
+        pawn.position,
+        position,
+        false,
         updatedState.isCheck,
         updatedState.isCheckmate
       )

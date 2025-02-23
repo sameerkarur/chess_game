@@ -55,5 +55,6 @@ export function createInitialGameState(): GameState {
     lastMove: null,
     enPassantTarget: null,
     moveHistory: [],
+    promotionState: null,
   }
 }

@@ -42,6 +42,15 @@ function isCastlingMove(piece: ChessPiece, from: Position, to: Position): boolea
   )
 }
 
+function isPromotionMove(piece: ChessPiece, to: Position): boolean {
+  return (
+    piece.type !== piece.originalType &&
+    piece.originalType === PieceType.PAWN &&
+    ((piece.color === "white" && to.y === 7) ||
+      (piece.color === "black" && to.y === 0))
+  )
+}
+
 export function getMoveNotation(
   piece: ChessPiece,
   from: Position,
@@ -51,6 +60,7 @@ export function getMoveNotation(
   isCheckmate: boolean
 ): MoveNotation {
   const isCastling = isCastlingMove(piece, from, to)
+  const isPromotion = isPromotionMove(piece, to)
   let moveText = ""
 
   if (isCastling) {
@@ -59,11 +69,12 @@ export function getMoveNotation(
     const pieceSymbol = getPieceSymbol(piece)
     const captureSymbol = isCapture ? "x" : ""
     const targetSquare = positionToSquare(to)
+    const promotionSymbol = isPromotion ? `=${getPieceSymbol(piece)}` : ""
     
-    if (piece.type === PieceType.PAWN && isCapture) {
-      moveText = `${FILES[from.x]}${captureSymbol}${targetSquare}`
+    if (piece.originalType === PieceType.PAWN && isCapture) {
+      moveText = `${FILES[from.x]}${captureSymbol}${targetSquare}${promotionSymbol}`
     } else {
-      moveText = `${pieceSymbol}${captureSymbol}${targetSquare}`
+      moveText = `${pieceSymbol}${captureSymbol}${targetSquare}${promotionSymbol}`
     }
   }
 
@@ -79,7 +90,7 @@ export function getMoveNotation(
     isCheck,
     isCheckmate,
     isCastling,
-    isPromotion: false, // TODO: Add promotion handling
+    isPromotion,
   }
 }
 
@@ -94,3 +105,4 @@ export function formatMoveHistory(moves: MoveNotation[]): string {
       return acc
     }, [])
     .join(" ")
+}

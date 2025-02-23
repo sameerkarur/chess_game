@@ -30,6 +30,12 @@ export interface ChessPiece {
   hasMoved: boolean
 }
 
+export interface PromotionState {
+  pawn: ChessPiece
+  position: Position
+  isOpen: boolean
+}
+
 export interface GameState {
   pieces: ChessPiece[]
   currentTurn: PlayerColor
@@ -46,4 +52,5 @@ export interface GameState {
   } | null
   enPassantTarget: Position | null
   moveHistory: MoveNotation[]
+  promotionState: PromotionState | null
 }
