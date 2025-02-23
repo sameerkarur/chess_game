@@ -1,4 +1,5 @@
-import { ChessPiece, PieceType, Position } from "@/types/chess"
+import { ChessPiece, PieceType, Position, GameState } from "@/types/chess"
+import { isKingInCheck } from "./check-validator"
 
 function isWithinBoard(position: Position): boolean {
   return position.x >= 0 && position.x < 8 && position.y >= 0 && position.y < 8
@@ -39,7 +40,65 @@ function addMove(
   return !getPieceAt(position, pieces)
 }
 
-function getPawnMoves(piece: ChessPiece, pieces: ChessPiece[]): Position[] {
+function getCastlingMoves(king: ChessPiece, gameState: GameState): Position[] {
+  const moves: Position[] = []
+  if (king.hasMoved || isKingInCheck(gameState.pieces, king.color)) return moves
+
+  const y = king.color === "white" ? 0 : 7
+  const rooks = gameState.pieces.filter(
+    (p) =>
+      p.type === PieceType.ROOK &&
+      p.color === king.color &&
+      !p.hasMoved &&
+      p.position.y === y
+  )
+
+  // Check kingside castling
+  const kingsideRook = rooks.find((r) => r.position.x === 7)
+  if (kingsideRook) {
+    const path = [{ x: 5, y }, { x: 6, y }]
+    if (
+      path.every((pos) => !getPieceAt(pos, gameState.pieces)) &&
+      path.every(
+        (pos) =>
+          !isKingInCheck(
+            [
+              ...gameState.pieces.filter((p) => p !== king),
+              { ...king, position: pos },
+            ],
+            king.color
+          )
+      )
+    ) {
+      moves.push({ x: 6, y })
+    }
+  }
+
+  // Check queenside castling
+  const queensideRook = rooks.find((r) => r.position.x === 0)
+  if (queensideRook) {
+    const path = [{ x: 3, y }, { x: 2, y }, { x: 1, y }]
+    if (
+      path.every((pos) => !getPieceAt(pos, gameState.pieces)) &&
+      path.slice(0, 2).every(
+        (pos) =>
+          !isKingInCheck(
+            [
+              ...gameState.pieces.filter((p) => p !== king),
+              { ...king, position: pos },
+            ],
+            king.color
+          )
+      )
+    ) {
+      moves.push({ x: 2, y })
+    }
+  }
+
+  return moves
+}
+
+function getPawnMoves(piece: ChessPiece, gameState: GameState): Position[] {
   const moves: Position[] = []
   const direction = piece.color === "white" ? 1 : -1
   const startRow = piece.color === "white" ? 1 : 6
@@ -48,13 +107,13 @@ function getPawnMoves(piece: ChessPiece, pieces: ChessPiece[]): Position[] {
   const forwardOne = { x: piece.position.x, y: piece.position.y + direction }
   if (
     isWithinBoard(forwardOne) &&
-    !getPieceAt(forwardOne, pieces)
+    !getPieceAt(forwardOne, gameState.pieces)
   ) {
     moves.push(forwardOne)
     // Initial two-square move
     if (piece.position.y === startRow) {
       const forwardTwo = { x: piece.position.x, y: piece.position.y + 2 * direction }
-      if (!getPieceAt(forwardTwo, pieces)) {
+      if (!getPieceAt(forwardTwo, gameState.pieces)) {
         moves.push(forwardTwo)
       }
     }
@@ -68,8 +127,16 @@ function getPawnMoves(piece: ChessPiece, pieces: ChessPiece[]): Position[] {
 
   diagonals.forEach((pos) => {
     if (isWithinBoard(pos)) {
-      const pieceAtPos = getPieceAt(pos, pieces)
+      const pieceAtPos = getPieceAt(pos, gameState.pieces)
       if (pieceAtPos && pieceAtPos.color !== piece.color) {
+        moves.push(pos)
+      }
+      // En passant
+      else if (
+        gameState.enPassantTarget &&
+        pos.x === gameState.enPassantTarget.x &&
+        pos.y === gameState.enPassantTarget.y
+      ) {
         moves.push(pos)
       }
     }
@@ -157,7 +224,7 @@ function getQueenMoves(piece: ChessPiece, pieces: ChessPiece[]): Position[] {
   ]
 }
 
-function getKingMoves(piece: ChessPiece, pieces: ChessPiece[]): Position[] {
+function getKingMoves(piece: ChessPiece, gameState: GameState): Position[] {
   const moves: Position[] = []
   const offsets = [
     { x: -1, y: -1 },
@@ -175,28 +242,29 @@ function getKingMoves(piece: ChessPiece, pieces: ChessPiece[]): Position[] {
       x: piece.position.x + offset.x,
       y: piece.position.y + offset.y,
     }
-    addMove(moves, newPos, pieces, piece.color)
+    addMove(moves, newPos, gameState.pieces, piece.color)
   })
 
-  // TODO: Add castling moves when implementing that feature
+  // Add castling moves
+  moves.push(...getCastlingMoves(piece, gameState))
 
   return moves
 }
 
-export function getValidMoves(piece: ChessPiece, pieces: ChessPiece[]): Position[] {
+export function getValidMoves(piece: ChessPiece, gameState: GameState): Position[] {
   switch (piece.type) {
     case PieceType.PAWN:
-      return getPawnMoves(piece, pieces)
+      return getPawnMoves(piece, gameState)
     case PieceType.ROOK:
-      return getRookMoves(piece, pieces)
+      return getRookMoves(piece, gameState.pieces)
     case PieceType.KNIGHT:
-      return getKnightMoves(piece, pieces)
+      return getKnightMoves(piece, gameState.pieces)
     case PieceType.BISHOP:
-      return getBishopMoves(piece, pieces)
+      return getBishopMoves(piece, gameState.pieces)
     case PieceType.QUEEN:
-      return getQueenMoves(piece, pieces)
+      return getQueenMoves(piece, gameState.pieces)
     case PieceType.KING:
-      return getKingMoves(piece, pieces)
+      return getKingMoves(piece, gameState)
     default:
       return []
   }

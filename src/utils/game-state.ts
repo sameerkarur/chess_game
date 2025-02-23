@@ -52,5 +52,7 @@ export function createInitialGameState(): GameState {
     isCheck: false,
     isCheckmate: false,
     isStalemate: false,
+    lastMove: null,
+    enPassantTarget: null,
   }
 }

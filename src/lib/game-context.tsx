@@ -1,5 +1,5 @@
 import { createContext, useContext, useReducer, ReactNode } from "react"
-import { GameState, Position, ChessPiece, PlayerColor } from "@/types/chess"
+import { GameState, Position, ChessPiece, PlayerColor, PieceType } from "@/types/chess"
 import { createInitialGameState } from "@/utils/game-state"
 import { isKingInCheck, isCheckmate, isStalemate } from "@/utils/check-validator"
 
@@ -17,6 +17,79 @@ interface GameContextType {
 }
 
 const GameContext = createContext<GameContextType | undefined>(undefined)
+
+function handleCastling(
+  state: GameState,
+  piece: ChessPiece,
+  to: Position
+): ChessPiece[] {
+  if (piece.type !== PieceType.KING || piece.hasMoved) return state.pieces
+
+  const y = piece.color === PlayerColor.WHITE ? 0 : 7
+  const isKingsideCastle = to.x === 6
+  const isQueensideCastle = to.x === 2
+
+  if (!isKingsideCastle && !isQueensideCastle) return state.pieces
+
+  const rookX = isKingsideCastle ? 7 : 0
+  const newRookX = isKingsideCastle ? 5 : 3
+
+  return state.pieces.map((p) => {
+    if (p === piece) {
+      return { ...p, position: to, hasMoved: true }
+    }
+    if (
+      p.type === PieceType.ROOK &&
+      p.color === piece.color &&
+      p.position.x === rookX &&
+      p.position.y === y
+    ) {
+      return { ...p, position: { x: newRookX, y }, hasMoved: true }
+    }
+    return p
+  })
+}
+
+function handleEnPassant(
+  state: GameState,
+  piece: ChessPiece,
+  to: Position
+): ChessPiece[] {
+  if (
+    piece.type === PieceType.PAWN &&
+    state.enPassantTarget &&
+    to.x === state.enPassantTarget.x &&
+    to.y === state.enPassantTarget.y
+  ) {
+    // Remove the captured pawn
+    return state.pieces.filter(
+      (p) =>
+        !(
+          p.type === PieceType.PAWN &&
+          p.position.x === to.x &&
+          p.position.y === piece.position.y
+        )
+    )
+  }
+  return state.pieces
+}
+
+function getEnPassantTarget(
+  piece: ChessPiece,
+  from: Position,
+  to: Position
+): Position | null {
+  if (
+    piece.type === PieceType.PAWN &&
+    Math.abs(to.y - from.y) === 2
+  ) {
+    return {
+      x: to.x,
+      y: (from.y + to.y) / 2,
+    }
+  }
+  return null
+}
 
 function updateGameStatus(state: GameState): GameState {
   const currentColor = state.currentTurn
@@ -41,16 +114,38 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       }
 
     case "MOVE_PIECE": {
+      const piece = state.pieces.find(
+        (p) =>
+          p.position.x === action.from.x && p.position.y === action.from.y
+      )
+      if (!piece) return state
+
+      // Handle special moves
+      let newPieces = handleCastling(state, piece, action.to)
+      if (newPieces === state.pieces) {
+        newPieces = handleEnPassant(state, piece, action.to)
+      }
+      if (newPieces === state.pieces) {
+        newPieces = state.pieces.map((p) =>
+          p === piece ? { ...p, position: action.to, hasMoved: true } : p
+        )
+      }
+
       const newState = {
         ...state,
-        pieces: state.pieces.map((piece) =>
-          piece.position === action.from
-            ? { ...piece, position: action.to, hasMoved: true }
-            : piece
-        ),
-        currentTurn: state.currentTurn === PlayerColor.WHITE ? PlayerColor.BLACK : PlayerColor.WHITE,
+        pieces: newPieces,
+        currentTurn:
+          state.currentTurn === PlayerColor.WHITE
+            ? PlayerColor.BLACK
+            : PlayerColor.WHITE,
         selectedPiece: null,
         validMoves: [],
+        lastMove: {
+          piece,
+          from: action.from,
+          to: action.to,
+        },
+        enPassantTarget: getEnPassantTarget(piece, action.from, action.to),
       }
       return updateGameStatus(newState)
     }

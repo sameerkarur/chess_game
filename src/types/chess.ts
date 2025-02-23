@@ -37,4 +37,10 @@ export interface GameState {
   isCheck: boolean
   isCheckmate: boolean
   isStalemate: boolean
+  lastMove: {
+    piece: ChessPiece
+    from: Position
+    to: Position
+  } | null
+  enPassantTarget: Position | null
 }
