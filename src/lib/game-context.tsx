@@ -2,6 +2,7 @@ import { createContext, useContext, useReducer, ReactNode } from "react"
 import { GameState, Position, ChessPiece, PlayerColor, PieceType } from "@/types/chess"
 import { createInitialGameState } from "@/utils/game-state"
 import { isKingInCheck, isCheckmate, isStalemate } from "@/utils/check-validator"
+import { getMoveNotation } from "@/utils/notation"
 
 type GameAction =
   | { type: "SELECT_PIECE"; piece: ChessPiece }
@@ -122,13 +123,26 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 
       // Handle special moves
       let newPieces = handleCastling(state, piece, action.to)
-      if (newPieces === state.pieces) {
+      const isCastling = newPieces !== state.pieces
+      let isCapture = false
+
+      if (!isCastling) {
         newPieces = handleEnPassant(state, piece, action.to)
-      }
-      if (newPieces === state.pieces) {
-        newPieces = state.pieces.map((p) =>
-          p === piece ? { ...p, position: action.to, hasMoved: true } : p
-        )
+        if (newPieces === state.pieces) {
+          // Check for regular capture
+          const capturedPiece = state.pieces.find(
+            (p) =>
+              p.position.x === action.to.x &&
+              p.position.y === action.to.y &&
+              p.color !== piece.color
+          )
+          isCapture = !!capturedPiece
+          newPieces = state.pieces.map((p) =>
+            p === piece ? { ...p, position: action.to, hasMoved: true } : p
+          )
+        } else {
+          isCapture = true
+        }
       }
 
       const newState = {
@@ -147,7 +161,23 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         },
         enPassantTarget: getEnPassantTarget(piece, action.from, action.to),
       }
-      return updateGameStatus(newState)
+
+      const updatedState = updateGameStatus(newState)
+      
+      // Record move in history
+      const moveNotation = getMoveNotation(
+        piece,
+        action.from,
+        action.to,
+        isCapture,
+        updatedState.isCheck,
+        updatedState.isCheckmate
+      )
+
+      return {
+        ...updatedState,
+        moveHistory: [...state.moveHistory, moveNotation],
+      }
     }
 
     case "CLEAR_SELECTION":

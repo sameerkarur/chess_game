@@ -1,9 +1,10 @@
 import { useGame } from "@/lib/game-context"
 import { ChessBoard } from "./chess-board"
+import { MoveHistory } from "./move-history"
 import { Position } from "@/types/chess"
 import { getValidMoves } from "@/utils/move-validator"
 import { wouldMoveResultInCheck } from "@/utils/check-validator"
-import { cn } from "classnames"
+import { cn } from "@/lib/utils"
 
 export function ChessGame() {
   const { state, dispatch } = useGame()
@@ -40,7 +41,7 @@ export function ChessGame() {
     else if (clickedPiece && clickedPiece.color === state.currentTurn) {
       dispatch({ type: "SELECT_PIECE", piece: clickedPiece })
       // Calculate valid moves and filter out moves that would result in check
-      const validMoves = getValidMoves(clickedPiece, state.pieces).filter(
+      const validMoves = getValidMoves(clickedPiece, state).filter(
         (move) => !wouldMoveResultInCheck(clickedPiece, move, state.pieces)
       )
       dispatch({ type: "SET_VALID_MOVES", moves: validMoves })
@@ -62,42 +63,47 @@ export function ChessGame() {
   }
 
   return (
-    <div className="flex flex-col items-center gap-4 p-8">
-      <div className={cn(
-        "text-2xl font-bold",
-        state.isCheck && "text-red-600",
-        state.isCheckmate && "text-purple-600",
-        state.isStalemate && "text-gray-600"
-      )}>
-        {getGameStatus()}
-      </div>
-      <ChessBoard gameState={state} onSquareClick={handleSquareClick} />
-      <div className="flex gap-8">
-        <div>
-          <h3 className="text-lg font-semibold">Captured White Pieces</h3>
-          <div className="flex gap-2">
-            {state.capturedPieces
-              .filter((p) => p.color === "white")
-              .map((piece, i) => (
-                <div key={i} className="text-2xl">
-                  {piece.type}
-                </div>
-              ))}
+    <div className="flex justify-center items-start gap-8 p-8">
+      <div className="flex flex-col items-center gap-4">
+        <div
+          className={cn(
+            "text-2xl font-bold",
+            state.isCheck && "text-red-600",
+            state.isCheckmate && "text-purple-600",
+            state.isStalemate && "text-gray-600"
+          )}
+        >
+          {getGameStatus()}
+        </div>
+        <ChessBoard gameState={state} onSquareClick={handleSquareClick} />
+        <div className="flex gap-8">
+          <div>
+            <h3 className="text-lg font-semibold">Captured White Pieces</h3>
+            <div className="flex gap-2">
+              {state.capturedPieces
+                .filter((p) => p.color === "white")
+                .map((piece, i) => (
+                  <div key={i} className="text-2xl">
+                    {piece.type}
+                  </div>
+                ))}
+            </div>
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold">Captured Black Pieces</h3>
+            <div className="flex gap-2">
+              {state.capturedPieces
+                .filter((p) => p.color === "black")
+                .map((piece, i) => (
+                  <div key={i} className="text-2xl">
+                    {piece.type}
+                  </div>
+                ))}
+            </div>
           </div>
         </div>
-        <div>
-          <h3 className="text-lg font-semibold">Captured Black Pieces</h3>
-          <div className="flex gap-2">
-            {state.capturedPieces
-              .filter((p) => p.color === "black")
-              .map((piece, i) => (
-                <div key={i} className="text-2xl">
-                  {piece.type}
-                </div>
-              ))}
-          </div>
-        </div>
       </div>
+      <MoveHistory moves={state.moveHistory} />
     </div>
   )
 }

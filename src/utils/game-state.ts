@@ -54,5 +54,6 @@ export function createInitialGameState(): GameState {
     isStalemate: false,
     lastMove: null,
     enPassantTarget: null,
+    moveHistory: [],
   }
 }

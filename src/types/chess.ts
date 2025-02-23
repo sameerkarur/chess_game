@@ -1,3 +1,5 @@
+import { MoveNotation } from "@/utils/notation"
+
 export const PieceType = {
   KING: "king",
   QUEEN: "queen",
@@ -43,4 +45,5 @@ export interface GameState {
     to: Position
   } | null
   enPassantTarget: Position | null
+  moveHistory: MoveNotation[]
 }
