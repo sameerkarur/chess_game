@@ -1,6 +1,7 @@
 import { useGame } from "@/lib/game-context"
 import { ChessBoard } from "./chess-board"
 import { Position } from "@/types/chess"
+import { getValidMoves } from "@/utils/move-validator"
 
 export function ChessGame() {
   const { state, dispatch } = useGame()
@@ -36,8 +37,9 @@ export function ChessGame() {
     // If no piece is selected and clicking on a piece of the current player's color
     else if (clickedPiece && clickedPiece.color === state.currentTurn) {
       dispatch({ type: "SELECT_PIECE", piece: clickedPiece })
-      // TODO: Calculate and dispatch valid moves
-      dispatch({ type: "SET_VALID_MOVES", moves: [] })
+      // Calculate and dispatch valid moves
+      const validMoves = getValidMoves(clickedPiece, state.pieces)
+      dispatch({ type: "SET_VALID_MOVES", moves: validMoves })
     }
   }
 
