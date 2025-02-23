@@ -1,6 +1,7 @@
 import { createContext, useContext, useReducer, ReactNode } from "react"
-import { GameState, Position, ChessPiece } from "@/types/chess"
+import { GameState, Position, ChessPiece, PlayerColor } from "@/types/chess"
 import { createInitialGameState } from "@/utils/game-state"
+import { isKingInCheck, isCheckmate, isStalemate } from "@/utils/check-validator"
 
 type GameAction =
   | { type: "SELECT_PIECE"; piece: ChessPiece }
@@ -8,6 +9,7 @@ type GameAction =
   | { type: "CLEAR_SELECTION" }
   | { type: "SET_VALID_MOVES"; moves: Position[] }
   | { type: "CAPTURE_PIECE"; piece: ChessPiece }
+  | { type: "CHECK_GAME_STATUS" }
 
 interface GameContextType {
   state: GameState
@@ -15,6 +17,20 @@ interface GameContextType {
 }
 
 const GameContext = createContext<GameContextType | undefined>(undefined)
+
+function updateGameStatus(state: GameState): GameState {
+  const currentColor = state.currentTurn
+  const isInCheck = isKingInCheck(state.pieces, currentColor)
+  const isInCheckmate = isCheckmate(state.pieces, currentColor)
+  const isInStalemate = isStalemate(state.pieces, currentColor)
+
+  return {
+    ...state,
+    isCheck: isInCheck,
+    isCheckmate: isInCheckmate,
+    isStalemate: isInStalemate,
+  }
+}
 
 function gameReducer(state: GameState, action: GameAction): GameState {
   switch (action.type) {
@@ -24,18 +40,20 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         selectedPiece: action.piece,
       }
 
-    case "MOVE_PIECE":
-      return {
+    case "MOVE_PIECE": {
+      const newState = {
         ...state,
         pieces: state.pieces.map((piece) =>
           piece.position === action.from
             ? { ...piece, position: action.to, hasMoved: true }
             : piece
         ),
-        currentTurn: state.currentTurn === "white" ? "black" : "white",
+        currentTurn: state.currentTurn === PlayerColor.WHITE ? PlayerColor.BLACK : PlayerColor.WHITE,
         selectedPiece: null,
         validMoves: [],
       }
+      return updateGameStatus(newState)
+    }
 
     case "CLEAR_SELECTION":
       return {
@@ -50,12 +68,17 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         validMoves: action.moves,
       }
 
-    case "CAPTURE_PIECE":
-      return {
+    case "CAPTURE_PIECE": {
+      const newState = {
         ...state,
         pieces: state.pieces.filter((p) => p !== action.piece),
         capturedPieces: [...state.capturedPieces, action.piece],
       }
+      return updateGameStatus(newState)
+    }
+
+    case "CHECK_GAME_STATUS":
+      return updateGameStatus(state)
 
     default:
       return state

@@ -2,6 +2,8 @@ import { useGame } from "@/lib/game-context"
 import { ChessBoard } from "./chess-board"
 import { Position } from "@/types/chess"
 import { getValidMoves } from "@/utils/move-validator"
+import { wouldMoveResultInCheck } from "@/utils/check-validator"
+import { cn } from "classnames"
 
 export function ChessGame() {
   const { state, dispatch } = useGame()
@@ -37,16 +39,37 @@ export function ChessGame() {
     // If no piece is selected and clicking on a piece of the current player's color
     else if (clickedPiece && clickedPiece.color === state.currentTurn) {
       dispatch({ type: "SELECT_PIECE", piece: clickedPiece })
-      // Calculate and dispatch valid moves
-      const validMoves = getValidMoves(clickedPiece, state.pieces)
+      // Calculate valid moves and filter out moves that would result in check
+      const validMoves = getValidMoves(clickedPiece, state.pieces).filter(
+        (move) => !wouldMoveResultInCheck(clickedPiece, move, state.pieces)
+      )
       dispatch({ type: "SET_VALID_MOVES", moves: validMoves })
     }
   }
 
+  function getGameStatus() {
+    if (state.isCheckmate) {
+      const winner = state.currentTurn === "white" ? "Black" : "White"
+      return `Checkmate! ${winner} wins!`
+    }
+    if (state.isStalemate) {
+      return "Stalemate! The game is a draw."
+    }
+    if (state.isCheck) {
+      return "Check!"
+    }
+    return `${state.currentTurn === "white" ? "White" : "Black"}'s Turn`
+  }
+
   return (
     <div className="flex flex-col items-center gap-4 p-8">
-      <div className="text-2xl font-bold">
-        {state.currentTurn === "white" ? "White" : "Black"}'s Turn
+      <div className={cn(
+        "text-2xl font-bold",
+        state.isCheck && "text-red-600",
+        state.isCheckmate && "text-purple-600",
+        state.isStalemate && "text-gray-600"
+      )}>
+        {getGameStatus()}
       </div>
       <ChessBoard gameState={state} onSquareClick={handleSquareClick} />
       <div className="flex gap-8">
